@@ -1,0 +1,19 @@
+name: Monitor new Nftables version
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+
+jobs:
+  nftables-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: git-for-windows/rss-to-issues@v0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          feed: https://salsa.debian.org/pkg-netfilter-team/pkg-nftables/-/tags?format=atom
+          prefix: "[nftables]"
+          character-limit: 255
+          dry-run: false
+          max-age: 48h
+          labels: nftables
