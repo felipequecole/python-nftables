@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as info:
 
 setuptools.setup(
     name="felipequecole-nftables",
-    version="1.0.2-1",
+    version="{{VERSION_PLACEHOLDER}}",
     author="Felipe Quecole",
     author_email="felipequecole@gmail.com",
     description="Copy of the python3-nftables module used to interact with libnftables",
