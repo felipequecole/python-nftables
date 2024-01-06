@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as info:
     long_description = info.read()
 
 setuptools.setup(
-    name="felipequecole-nftables",
+    name="pip-nftables",
     version="{{VERSION_PLACEHOLDER}}",
     author="Felipe Quecole",
     author_email="felipequecole@gmail.com",
