@@ -37,11 +37,6 @@ class SchemaValidator:
 class Nftables:
     """A class representing libnftables interface"""
 
-    input_flags = {
-        "no-dns": 0x1,
-        "json": 0x2,
-    }
-
     debug_flags = {
         "scanner":   0x1,
         "parser":    0x2,
@@ -79,8 +74,6 @@ class Nftables:
         is requested from the library and buffering of output and error streams
         is turned on.
         """
-        self.__ctx = None
-
         lib = cdll.LoadLibrary(sofile)
 
         ### API function definitions
@@ -88,14 +81,6 @@ class Nftables:
         self.nft_ctx_new = lib.nft_ctx_new
         self.nft_ctx_new.restype = c_void_p
         self.nft_ctx_new.argtypes = [c_int]
-
-        self.nft_ctx_input_get_flags = lib.nft_ctx_input_get_flags
-        self.nft_ctx_input_get_flags.restype = c_uint
-        self.nft_ctx_input_get_flags.argtypes = [c_void_p]
-
-        self.nft_ctx_input_set_flags = lib.nft_ctx_input_set_flags
-        self.nft_ctx_input_set_flags.restype = c_uint
-        self.nft_ctx_input_set_flags.argtypes = [c_void_p, c_uint]
 
         self.nft_ctx_output_get_flags = lib.nft_ctx_output_get_flags
         self.nft_ctx_output_get_flags.restype = c_uint
@@ -131,31 +116,6 @@ class Nftables:
         self.nft_run_cmd_from_buffer.restype = c_int
         self.nft_run_cmd_from_buffer.argtypes = [c_void_p, c_char_p]
 
-        self.nft_run_cmd_from_filename = lib.nft_run_cmd_from_filename
-        self.nft_run_cmd_from_filename.restype = c_int
-        self.nft_run_cmd_from_filename.argtypes = [c_void_p, c_char_p]
-
-        self.nft_ctx_add_include_path = lib.nft_ctx_add_include_path
-        self.nft_ctx_add_include_path.restype = c_int
-        self.nft_ctx_add_include_path.argtypes = [c_void_p, c_char_p]
-
-        self.nft_ctx_clear_include_paths = lib.nft_ctx_clear_include_paths
-        self.nft_ctx_clear_include_paths.argtypes = [c_void_p]
-
-        self.nft_ctx_get_dry_run = lib.nft_ctx_get_dry_run
-        self.nft_ctx_get_dry_run.restype = c_bool
-        self.nft_ctx_get_dry_run.argtypes = [c_void_p]
-
-        self.nft_ctx_set_dry_run = lib.nft_ctx_set_dry_run
-        self.nft_ctx_set_dry_run.argtypes = [c_void_p, c_bool]
-
-        self.nft_ctx_add_var = lib.nft_ctx_add_var
-        self.nft_ctx_add_var.restype = c_int
-        self.nft_ctx_add_var.argtypes = [c_void_p, c_char_p]
-
-        self.nft_ctx_clear_vars = lib.nft_ctx_clear_vars
-        self.nft_ctx_clear_vars.argtypes = [c_void_p]
-
         self.nft_ctx_free = lib.nft_ctx_free
         lib.nft_ctx_free.argtypes = [c_void_p]
 
@@ -165,72 +125,11 @@ class Nftables:
         self.nft_ctx_buffer_error(self.__ctx)
 
     def __del__(self):
-        if self.__ctx is not None:
-            self.nft_ctx_free(self.__ctx)
-            self.__ctx = None
-
-    def _flags_from_numeric(self, flags_dict, val):
-        names = []
-        for n, v in flags_dict.items():
-            if val & v:
-                names.append(n)
-                val &= ~v
-        if val:
-            names.append(val)
-        return names
-
-    def _flags_to_numeric(self, flags_dict, values):
-        if isinstance(values, (str, int)):
-            values = (values,)
-
-        val = 0
-        for v in values:
-            if isinstance(v, str):
-                v = flags_dict.get(v)
-                if v is None:
-                    raise ValueError("Invalid argument")
-            elif isinstance(v, int):
-                if v < 0 or v > 0xFFFFFFFF:
-                    raise ValueError("Invalid argument")
-            else:
-                raise TypeError("Not a valid flag")
-            val |= v
-
-        return val
-
-    def get_input_flags(self):
-        """Get currently active input flags.
-
-        Returns a set of flag names. See set_input_flags() for details.
-        """
-        val = self.nft_ctx_input_get_flags(self.__ctx)
-        return self._flags_from_numeric(self.input_flags, val)
-
-    def set_input_flags(self, values):
-        """Set input flags.
-
-        Resets all input flags to values. Accepts either a single flag or a list
-        of flags. Each flag might be given either as string or integer value as
-        shown in the following table:
-
-        Name      | Value (hex)
-        -----------------------
-        "no-dns"  | 0x1
-        "json"    | 0x2
-
-        "no-dns" disables blocking address lookup.
-        "json" enables JSON mode for input.
-
-        Returns a set of previously active input flags, as returned by
-        get_input_flags() method.
-        """
-        val = self._flags_to_numeric(self.input_flags, values)
-        old = self.nft_ctx_input_set_flags(self.__ctx, val)
-        return self._flags_from_numeric(self.input_flags, old)
+        self.nft_ctx_free(self.__ctx)
 
     def __get_output_flag(self, name):
         flag = self.output_flags[name]
-        return (self.nft_ctx_output_get_flags(self.__ctx) & flag) != 0
+        return self.nft_ctx_output_get_flags(self.__ctx) & flag
 
     def __set_output_flag(self, name, val):
         flag = self.output_flags[name]
@@ -240,7 +139,7 @@ class Nftables:
         else:
             new_flags = flags & ~flag
         self.nft_ctx_output_set_flags(self.__ctx, new_flags)
-        return (flags & flag) != 0
+        return flags & flag
 
     def get_reversedns_output(self):
         """Get the current state of reverse DNS output.
@@ -447,7 +346,16 @@ class Nftables:
         Returns a set of flag names. See set_debug() for details.
         """
         val = self.nft_ctx_output_get_debug(self.__ctx)
-        return self._flags_from_numeric(self.debug_flags, val)
+
+        names = []
+        for n,v in self.debug_flags.items():
+            if val & v:
+                names.append(n)
+                val &= ~v
+        if val:
+            names.append(val)
+
+        return names
 
     def set_debug(self, values):
         """Set debug output flags.
@@ -469,9 +377,19 @@ class Nftables:
         Returns a set of previously active debug flags, as returned by
         get_debug() method.
         """
-        val = self._flags_to_numeric(self.debug_flags, values)
         old = self.get_debug()
+
+        if type(values) in [str, int]:
+            values = [values]
+
+        val = 0
+        for v in values:
+            if type(v) is str:
+                v = self.debug_flags[v]
+            val |= v
+
         self.nft_ctx_output_set_debug(self.__ctx, val)
+
         return old
 
     def cmd(self, cmdline):
@@ -528,77 +446,3 @@ class Nftables:
 
         self.validator.validate(json_root)
         return True
-
-    def cmd_from_file(self, filename):
-        """Run a nftables command set from a file
-
-        filename can be a str or a Path
-
-        Returns a tuple (rc, output, error):
-        rc     -- return code as returned by nft_run_cmd_from_filename() function
-        output -- a string containing output written to stdout
-        error  -- a string containing output written to stderr
-        """
-        filename_is_unicode = False
-        if not isinstance(filename, bytes):
-            filename_is_unicode = True
-            filename = str(filename)
-            filename= filename.encode("utf-8")
-        rc = self.nft_run_cmd_from_filename(self.__ctx, filename)
-        output = self.nft_ctx_get_output_buffer(self.__ctx)
-        error = self.nft_ctx_get_error_buffer(self.__ctx)
-        if filename_is_unicode:
-            output = output.decode("utf-8")
-            error = error.decode("utf-8")
-        return (rc, output, error)
-
-    def add_include_path(self, filename):
-        """Add a path to the include file list
-        The default list includes the built-in default one
-
-        Returns True on success, False if memory allocation fails
-        """
-        if not isinstance(filename, bytes):
-            filename = str(filename)
-            filename= filename.encode("utf-8")
-        rc = self.nft_ctx_add_include_path(self.__ctx, filename)
-        return rc == 0
-
-    def clear_include_paths(self):
-        """Clear include path list
-
-        Will also remove the built-in default one
-        """
-        self.nft_ctx_clear_include_paths(self.__ctx)
-
-    def get_dry_run(self):
-        """Get dry run state
-
-        Returns True if set, False otherwise
-        """
-        return self.nft_ctx_get_dry_run(self.__ctx)
-
-    def set_dry_run(self, onoff):
-        """ Set dry run state
-
-        Returns the previous dry run state
-        """
-        old = self.get_dry_run()
-        self.nft_ctx_set_dry_run(self.__ctx, onoff)
-
-        return old
-
-    def add_var(self, var):
-        """Add a variable to the variable list
-
-        Returns True if added, False otherwise
-        """
-        if not isinstance(var, bytes):
-            var = var.encode("utf-8")
-        rc = self.nft_ctx_add_var(self.__ctx, var)
-        return rc == 0
-
-    def clear_vars(self):
-        """Clear variable list
-        """
-        self.nft_ctx_clear_vars(self.__ctx)
